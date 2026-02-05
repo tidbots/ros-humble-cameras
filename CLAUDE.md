@@ -4,46 +4,46 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a ROS 2 Humble project for camera integration. The repository is currently in early development.
+ROS 2 Humble multi-camera input system supporting Webcam (UVC), ASUS Xtion (OpenNI2), and Intel RealSense cameras with Docker containerization. All cameras output to unified topics `/camera/image_raw` and `/camera/camera_info`.
 
 ## Build Commands
 
-Once ROS 2 packages are added, use standard ROS 2 Humble build commands:
-
 ```bash
-# Build entire workspace (run from workspace root)
-colcon build
+# Build Docker image
+docker compose build
 
-# Build specific package
-colcon build --packages-select <package_name>
+# Start with specific camera profile
+docker compose --profile webcam up
+docker compose --profile xtion up
+docker compose --profile realsense up
 
-# Build with symlink install (faster iteration for Python)
-colcon build --symlink-install
+# Stop
+docker compose down
 ```
 
-## Testing
+## Debug Utilities
 
 ```bash
-# Run all tests
-colcon test
+# OpenCV viewer (q or ESC to exit)
+docker compose --profile webcam --profile view up
 
-# Run tests for specific package
-colcon test --packages-select <package_name>
-
-# View test results
-colcon test-result --verbose
-```
-
-## Environment Setup
-
-```bash
-# Source ROS 2 Humble
-source /opt/ros/humble/setup.bash
-
-# Source workspace overlay (after building)
-source install/setup.bash
+# Web browser viewer (http://localhost:8080/)
+docker compose --profile webcam --profile debug up
 ```
 
 ## Architecture
 
-This repository will contain ROS 2 packages for camera drivers and integration. Structure will follow standard ROS 2 conventions with package.xml and CMakeLists.txt (C++) or setup.py (Python) per package.
+- **camera_launch/** - ROS 2 package with launch files and cv_viewer node
+- **launch/** - Host-mounted launch files (editable without rebuild)
+- **persist/camera_info/** - Persistent calibration storage per camera
+- **compose.yaml** - Docker Compose profiles for each camera type
+- ROS 2 uses DDS (no roscore needed)
+- Topic relay nodes unify different camera outputs to `/camera/image_raw`
+
+## Key Differences from ROS 1 (Noetic) Version
+
+- Launch files are Python (`.launch.py`) instead of XML
+- Uses `rclpy` instead of `rospy`
+- Uses `ament_cmake` instead of `catkin`
+- Uses `ros2 launch` instead of `roslaunch`
+- Uses `ros2 topic` instead of `rostopic`

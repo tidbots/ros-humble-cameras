@@ -1,0 +1,120 @@
+services:
+  # ==========================
+  # Camera sources (pick ONE)
+  # ==========================
+
+  # --------------------------
+  # USB Webcam (UVC)
+  # --------------------------
+  camera_webcam:
+    image: ros-humble-cameras:latest
+    build: .
+    network_mode: host
+    ipc: host
+    restart: unless-stopped
+    devices:
+      - ${CAM_DEV:-/dev/video0}:${CAM_DEV:-/dev/video0}
+    volumes:
+      # Mount launch files from host (no rebuild needed)
+      - ./launch:/launch:ro
+      # Persist camera_info (webcam)
+      - ./persist/camera_info/webcam:/root/.ros/camera_info
+    command:
+      [
+        "bash", "-lc",
+        "source /opt/ros/humble/setup.bash && \
+         ros2 launch /launch/webcam.launch.py \
+           device:=${CAM_DEV:-/dev/video0} \
+           width:=${CAM_W:-1280} height:=${CAM_H:-720} fps:=${CAM_FPS:-30.0} \
+           frame_id:=${CAM_FRAME:-webcam_link} \
+           camera_name:=${CAMERA_NAME:-webcam} \
+           camera_info_url:=${CAMERA_INFO_URL:-file:///root/.ros/camera_info/webcam.yaml} \
+           out_image:=${OUT_IMAGE:-/camera/image_raw} \
+           out_info:=${OUT_INFO:-/camera/camera_info}"
+      ]
+    profiles: ["webcam"]
+
+  # --------------------------
+  # ASUS Xtion / OpenNI2 (RGB-D)
+  # --------------------------
+  camera_xtion:
+    image: ros-humble-cameras:latest
+    network_mode: host
+    ipc: host
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - ./launch:/launch:ro
+      # Persist camera_info (xtion)
+      - ./persist/camera_info/xtion:/root/.ros/camera_info
+    command:
+      [
+        "bash", "-lc",
+        "source /opt/ros/humble/setup.bash && \
+         ros2 launch /launch/xtion.launch.py \
+           name:=${XTION_NAME:-xtion} \
+           rgb_camera_info_url:=${XTION_RGB_INFO_URL:-file:///root/.ros/camera_info/xtion_rgb.yaml} \
+           depth_camera_info_url:=${XTION_DEPTH_INFO_URL:-file:///root/.ros/camera_info/xtion_depth.yaml} \
+           in_image:=${XTION_IN_IMAGE:-/xtion/rgb/image_raw} \
+           in_info:=${XTION_IN_INFO:-/xtion/rgb/camera_info} \
+           out_image:=${OUT_IMAGE:-/camera/image_raw} \
+           out_info:=${OUT_INFO:-/camera/camera_info}"
+      ]
+    profiles: ["xtion"]
+
+  # --------------------------
+  # Intel RealSense (realsense2_camera)
+  # --------------------------
+  camera_realsense:
+    image: ros-humble-cameras:latest
+    network_mode: host
+    ipc: host
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - ./launch:/launch:ro
+      # Persist camera_info (realsense)
+      - ./persist/camera_info/realsense:/root/.ros/camera_info
+    command:
+      [
+        "bash", "-lc",
+        "source /opt/ros/humble/setup.bash && \
+         ros2 launch /launch/realsense.launch.py \
+           name:=${RS_NAME:-realsense} \
+           in_image:=${RS_IN_IMAGE:-/realsense/color/image_raw} \
+           in_info:=${RS_IN_INFO:-/realsense/color/camera_info} \
+           out_image:=${OUT_IMAGE:-/camera/image_raw} \
+           out_info:=${OUT_INFO:-/camera/camera_info}"
+      ]
+    profiles: ["realsense"]
+
+  # ==========================
+  # Debug utilities
+  # ==========================
+
+  # View in browser (http://localhost:8080/)
+  web_video_server:
+    image: ros-humble-cameras:latest
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./launch:/launch:ro
+    command:
+      ["bash", "-lc", "source /opt/ros/humble/setup.bash && ros2 launch /launch/web_video_server.launch.py port:=${WVS_PORT:-8080}"]
+    profiles: ["debug"]
+
+  # OpenCV image window viewer (q or ESC to exit)
+  cv_viewer:
+    image: ros-humble-cameras:latest
+    network_mode: host
+    restart: "no"
+    environment:
+      - DISPLAY=${DISPLAY}
+      - XAUTHORITY=/root/.Xauthority
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority:ro
+      - ./launch:/launch:ro
+    command:
+      ["bash", "-lc", "source /opt/ros/humble/setup.bash && source /ros2_ws/install/setup.bash && ros2 launch /launch/cv_viewer.launch.py image:=${OUT_IMAGE:-/camera/image_raw}"]
+    profiles: ["view"]
