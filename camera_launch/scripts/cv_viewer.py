@@ -6,6 +6,7 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2
+import numpy as np
 
 
 class CvViewer(Node):
@@ -31,10 +32,29 @@ class CvViewer(Node):
 
     def image_callback(self, msg):
         try:
-            if msg.encoding == 'rgb8':
+            encoding = msg.encoding.lower()
+
+            if encoding == 'rgb8':
                 cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+            elif encoding == 'bgr8':
+                cv_image = self.bridge.imgmsg_to_cv2(msg, 'bgr8')
+            elif encoding in ['yuyv', 'yuv422_yuy2']:
+                # YUV422 YUYV format - manually convert
+                yuv_data = np.frombuffer(msg.data, dtype=np.uint8)
+                yuv_image = yuv_data.reshape((msg.height, msg.width, 2))
+                cv_image = cv2.cvtColor(yuv_image, cv2.COLOR_YUV2BGR_YUYV)
+            elif encoding == 'uyvy':
+                yuv_data = np.frombuffer(msg.data, dtype=np.uint8)
+                yuv_image = yuv_data.reshape((msg.height, msg.width, 2))
+                cv_image = cv2.cvtColor(yuv_image, cv2.COLOR_YUV2BGR_UYVY)
+            elif encoding == 'mono8':
+                cv_image = self.bridge.imgmsg_to_cv2(msg, 'mono8')
+            elif encoding == 'mono16':
+                cv_image = self.bridge.imgmsg_to_cv2(msg, 'mono16')
+                cv_image = (cv_image / 256).astype(np.uint8)
             else:
-                cv_image = self.bridge.imgmsg_to_cv2(msg, msg.encoding)
+                # Try passthrough for unknown encodings
+                cv_image = self.bridge.imgmsg_to_cv2(msg, 'passthrough')
 
             cv2.imshow(self.window_name, cv_image)
             key = cv2.waitKey(1) & 0xFF
@@ -42,7 +62,7 @@ class CvViewer(Node):
                 self.get_logger().info('User requested shutdown')
                 rclpy.shutdown()
         except Exception as e:
-            self.get_logger().error(f'Error converting image: {e}')
+            self.get_logger().error(f'Error converting image (encoding={msg.encoding}): {e}')
 
 
 def main(args=None):

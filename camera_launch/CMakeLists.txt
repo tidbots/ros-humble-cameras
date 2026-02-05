@@ -4,7 +4,7 @@ project(camera_launch)
 find_package(ament_cmake REQUIRED)
 
 install(PROGRAMS
-  camera_launch/cv_viewer.py
+  scripts/cv_viewer.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
